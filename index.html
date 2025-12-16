@@ -26,6 +26,7 @@
 let profiles = JSON.parse(localStorage.getItem('profiles')) || {};
 let currentProfile = null;
 const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+window.selectedType = null; // currently selected meal type
 
 function saveData(){ localStorage.setItem('profiles', JSON.stringify(profiles)); }
 
@@ -93,19 +94,79 @@ function renderCalendar(){
     <button onclick="setSelected('nightMeal')">Night Meal</button>
     <button onclick="setSelected('bothMeal')">Both Meals</button>
     <button onclick="setSelected('holiday')">Holiday</button>
+    <button onclick="setSelected(null)">Remove Selection</button>
+    <button onclick="clearMonth()">Clear Month</button>
   </div>
   <h4 id="summary"></h4>`;
 
-  window.selectedType = null;
   const daysInMonth=new Date(y, Number(m)+1, 0).getDate();
   calendar.innerHTML='';
   for(let d=1; d<=daysInMonth; d++){
     let div=document.createElement('div'); div.className='day'; div.innerText=d;
-    let status=p.data[key].days[d]; if(status) div.classList.add(status);
+    let status=p.data[key].days[d];
+    div.classList.remove('dayMeal','nightMeal','bothMeal','holiday');
+    if(status) div.classList.add(status);
     div.onclick=()=>applyMeal(d,key,div);
     calendar.appendChild(div);
   }
   updateSummary(key);
+}
+
+function setSelected(type){
+  window.selectedType = type;
+}
+
+function applyMeal(d,key,div){
+  // Clear existing styles
+  div.classList.remove('dayMeal','nightMeal','bothMeal','holiday');
+
+  if(window.selectedType === null){
+    delete profiles[currentProfile].data[key].days[d];
+  } else {
+    profiles[currentProfile].data[key].days[d]=window.selectedType;
+    div.classList.add(window.selectedType);
+  }
+  saveData(); updateSummary(key);
+}
+
+function clearMonth(){
+  if(!currentProfile) return;
+  if(!confirm('Are you sure you want to clear all data for this month?')) return;
+  const m=month.value, y=year.value;
+  const key=`${y}-${m}`;
+  profiles[currentProfile].data[key]={ days:{} };
+  saveData(); renderCalendar();
+}
+
+function setRate(v){ profiles[currentProfile].rate=Number(v); saveData(); renderCalendar(); }
+
+function updateSummary(key){
+  let meals=0; const days=profiles[currentProfile].data[key].days;
+  for(let d in days){ if(days[d]=='bothMeal') meals+=2; else if(days[d]=='holiday') meals+=0; else meals+=1; }
+  summary.innerText=`Monthly Meals: ${meals} | Monthly Amount: ₹${meals*profiles[currentProfile].rate}`;
+}
+
+function showYearSummary(){
+  if(!currentProfile) return;
+  let y=year.value; let totalMeals=0; let html=`<h3>Year Summary (${y})</h3>`;
+  months.forEach((m,i)=>{
+    const key=`${y}-${i}`;
+    let meals=0;
+    if(profiles[currentProfile].data[key]){
+      const days=profiles[currentProfile].data[key].days;
+      for(let d in days){ if(days[d]=='bothMeal') meals+=2; else if(days[d]=='holiday') meals+=0; else meals+=1; }
+    }
+    totalMeals+=meals;
+    html+=`${m}: ${meals} meals<br>`;
+  });
+  html+=`<b>Total Year Meals:</b> ${totalMeals}<br>`;
+  html+=`<b>Total Year Amount:</b> ₹${totalMeals*profiles[currentProfile].rate}`;
+  yearSummary.innerHTML=html;
+}
+
+initYearMonth(); renderProfiles();
+</script></body>
+</html>  updateSummary(key);
 }
 
 function setSelected(type){ window.selectedType=type; }
